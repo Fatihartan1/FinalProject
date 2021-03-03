@@ -2,6 +2,9 @@
 using Business.BusinessAspects.Autofac;
 using Business.Constants;
 using Business.ValidationRules.FluentValidation;
+using Core.Aspects.Autofac.Caching;
+using Core.Aspects.Autofac.Performance;
+using Core.Aspects.Autofac.Transaction;
 using Core.Aspects.Autofac.Validation;
 using Core.CrossCuttingConcerns.Validation;
 using Core.Utilities.Business;
@@ -27,8 +30,10 @@ namespace Business.Concrete
             _productDal = productDal;
             _categoryService = categoryService;
         }
+
         [SecuredOperation("product.add,admin")]
         [ValidationAspect(typeof(ProductValidator))]
+        [CacheRemoveAspect("IProductService.Get")]
         public IResult Add(Product product)
         {
             IResult result = BusinessRules.Run(CheckIfProducNameExists(product.ProductName),
@@ -40,7 +45,7 @@ namespace Business.Concrete
            _productDal.Add(product);
             return new SuccesResult(Messages.ProductAdded);
         }
-
+        [CacheAspect]
         public IDataResult<List<Product>> GetAll()
         {
             if (DateTime.Now.Hour == 23)
@@ -55,7 +60,8 @@ namespace Business.Concrete
         {
             return new SuccesDataResult<List<Product>>(_productDal.GetAll(p => p.CategoryID == id));
         }
-
+        [CacheAspect]
+        [PerformanceAspect(5)]
         public IDataResult<Product> GetById(int productID)
         {
             return new SuccesDataResult<Product>(_productDal.Get(p => p.ProductID == productID));
@@ -70,7 +76,7 @@ namespace Business.Concrete
         {
             return new SuccesDataResult<List<ProductDetailDto>>(_productDal.GetProductDetails());
         }
-
+        [CacheRemoveAspect("IProductService.Get")]
         [ValidationAspect(typeof(ProductValidator))]
         public IResult Update(Product product)
         {
@@ -93,6 +99,11 @@ namespace Business.Concrete
                 return new ErrorResult(Messages.ProductNameAlreadyExist);
             }
             return new SuccesResult();
+        }
+        [TransactionScopeAspect]
+        public IResult AddTransactionalTest(Product product)
+        {
+            throw new NotImplementedException();
         }
     }
 }
